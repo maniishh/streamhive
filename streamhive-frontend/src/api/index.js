@@ -60,7 +60,7 @@ export const videoAPI = {
   getById: (videoId) => api.get(`/videos/${videoId}`),
   publish: (formData, onUploadProgress) => api.post('/videos', formData, {
     onUploadProgress,
-    timeout: 0, // disable timeout for large video uploads
+    timeout: 0,
   }),
   update:  (videoId, formData) => api.patch(`/videos/${videoId}`, formData),
   delete:  (videoId) => api.delete(`/videos/${videoId}`),
@@ -113,6 +113,23 @@ export const playlistAPI = {
 export const dashboardAPI = {
   getStats:  () => api.get('/dashboard/stats'),
   getVideos: () => api.get('/dashboard/videos'),
+};
+
+/* ── SEARCH (NEW) ── */
+export const searchAPI = {
+  /**
+   * Full categorised search.
+   * Returns { query, totalResults, results: { videos, channels, users } }
+   */
+  global: (q, limit = 10) =>
+    api.get('/search', { params: { q, limit } }),
+
+  /**
+   * Lightweight autocomplete suggestions.
+   * Returns { suggestions: { videos, channels } }
+   */
+  suggest: (q, limit = 5) =>
+    api.get('/search/suggest', { params: { q, limit } }),
 };
 
 /* ── HELPERS ── */
