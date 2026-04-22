@@ -58,7 +58,10 @@ export const authAPI = {
 export const videoAPI = {
   getAll: (params) => api.get('/videos', { params }),
   getById: (videoId) => api.get(`/videos/${videoId}`),
-  publish: (formData) => api.post('/videos', formData),
+  publish: (formData, onUploadProgress) => api.post('/videos', formData, {
+    onUploadProgress,
+    timeout: 0, // disable timeout for large video uploads
+  }),
   update:  (videoId, formData) => api.patch(`/videos/${videoId}`, formData),
   delete:  (videoId) => api.delete(`/videos/${videoId}`),
   togglePublish: (videoId) => api.patch(`/videos/toggle/publish/${videoId}`),
