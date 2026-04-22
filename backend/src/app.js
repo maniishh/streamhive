@@ -18,8 +18,10 @@ app.use(cookieParser())// to parse cookies from request headers
 
 //routes
 import userRouter from "./routes/user.routes.js";
-
 app.use("/api/v1/users",userRouter)
+
+import searchRouter from "./routes/search.routes.js";
+app.use("/api/v1/search", searchRouter);
 
 
 
