@@ -4,18 +4,8 @@ const BASE_URL = import.meta.env.VITE_API_URL + '/api/v1';
 
 export const api = axios.create({
   baseURL: BASE_URL,
-  withCredentials: true,
+  withCredentials: true, // ✅ ensures cookies are sent automatically
 });
-
-// Attach access token to every request
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('accessToken');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
-
 // Auto-refresh on 401
 api.interceptors.response.use(
   (res) => res,
