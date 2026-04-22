@@ -8,12 +8,13 @@ cloudinary.config({
     api_secret: process.env.CLOUDINARY_API_SECRET
 });  
 
-const uploadOnCloudinary = async (localFilePath) => {
+const uploadOnCloudinary = async (localFilePath, folder) => {
     try{
         if(!localFilePath) return null;
-        //upload the file on cludinary
+        //upload the file on cloudinary
         const response=await cloudinary.uploader.upload(localFilePath,{
             resource_type: 'auto',
+            ...(folder && { folder }),
         })
        // console.log("file is ulpoaded on cloudinary", response.url);
        fs.unlinkSync(localFilePath);//delete the file from local storage as we have uploaded it on cloudinary and we don't need it in local storage anymore
