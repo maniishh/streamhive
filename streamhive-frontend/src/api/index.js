@@ -38,8 +38,8 @@ export const authAPI = {
   getCurrentUser: ()   => api.get('/users/current-user'),
   changePassword: (data) => api.post('/users/change-password', data),
   updateAccount:  (data) => api.patch('/users/update-account', data),
-  updateAvatar:   (formData) => api.patch('/users/avatar', formData),
-  updateCoverImage: (formData) => api.patch('/users/cover-image', formData),
+  updateAvatar:   (formData) => api.patch('/users/avatar', formData, { timeout: 0 }),
+  updateCoverImage: (formData) => api.patch('/users/cover-image', formData, { timeout: 0 }),
   getChannelProfile: (username) => api.get(`/users/c/${username}`),
   getWatchHistory: () => api.get('/users/history'),
 };
