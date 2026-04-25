@@ -8,24 +8,45 @@ cloudinary.config({
     api_secret: process.env.CLOUDINARY_API_SECRET
 });  
 
+//  Use upload_large for chunked uploading — prevents timeouts and
+// memory exhaustion when users upload large video files. The 6 MB chunk
+// size keeps each HTTP request well within Cloudinary's limits.
+const CHUNK_SIZE = 6 * 1024 * 1024; // 6 MB per chunk
+
 const uploadOnCloudinary = async (localFilePath, folder) => {
-    try{
-        if(!localFilePath) return null;
-        //upload the file on cloudinary
-        const response=await cloudinary.uploader.upload(localFilePath,{
-            resource_type: 'auto',
-            ...(folder && { folder }),
-        })
-       // console.log("file is ulpoaded on cloudinary", response.url);
-       fs.unlinkSync(localFilePath);//delete the file from local storage as we have uploaded it on cloudinary and we don't need it in local storage anymore
+    try {
+        if (!localFilePath) return null;
+
+        const fileStat = fs.statSync(localFilePath);
+        const isLargeFile = fileStat.size > CHUNK_SIZE;
+
+        let response;
+
+        if (isLargeFile) {
+            // Chunked upload for videos / large files
+            response = await cloudinary.uploader.upload_large(localFilePath, {
+                resource_type: 'auto',
+                chunk_size: CHUNK_SIZE,
+                ...(folder && { folder }),
+            });
+        } else {
+            // Standard upload for small files (thumbnails, images, etc.)
+            response = await cloudinary.uploader.upload(localFilePath, {
+                resource_type: 'auto',
+                ...(folder && { folder }),
+            });
+        }
+
+        fs.unlinkSync(localFilePath); // remove temp file after successful upload
         return response;
 
-    }
-    catch(error){
-        fs.unlinkSync(localFilePath);//delete the file from local storage as operation is failed
-        console.log("error while uploading file on cloudinary", error);
+    } catch (error) {
+        // Always clean up the temp file, even on failure
+        if (fs.existsSync(localFilePath)) {
+            fs.unlinkSync(localFilePath);
+        }
+        console.log("Error while uploading file on Cloudinary:", error);
         return null;
-
     }
 }
 
