@@ -30,7 +30,7 @@ export default function VideoPage() {
     fetchVideo();
     fetchRelated();
   }, [videoId]);
-
+  
   const fetchVideo = async () => {
     setLoading(true);
     try {
