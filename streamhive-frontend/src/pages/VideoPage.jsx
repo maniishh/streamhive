@@ -1,36 +1,36 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ThumbsUp, Share2, Bell, BellOff, Trash2, Edit2, MoreVertical, Send, Play, X, Copy, Check, Link2 } from 'lucide-react';
+import { ThumbsUp, Share2, Bell, BellOff, Trash2, Edit2, Send, Play, X, Copy, Check, Link2 } from 'lucide-react';
 import { videoAPI, commentAPI, likeAPI, subscriptionAPI, formatViews, formatDuration, timeAgo } from '../api/index.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { toast } from '../components/Toast.jsx';
 import VideoCard from '../components/VideoCard.jsx';
-import ShareModal from '../components/ShareModal.jsx';
+
+// ─── NO import of ShareModal from components — it lives at the bottom of this file ───
 
 export default function VideoPage() {
   const { videoId } = useParams();
   const { user }    = useAuth();
 
-  const [video, setVideo]           = useState(null);
-  const [loading, setLoading]       = useState(true);
-  const [liked, setLiked]           = useState(false);
-  const [likeCount, setLikeCount]   = useState(0);
-  const [subscribed, setSubscribed] = useState(false);
-  const [comments, setComments]     = useState([]);
-  const [commentText, setCommentText] = useState('');
-  const [editId, setEditId]         = useState(null);
-  const [editText, setEditText]     = useState('');
-  const [related, setRelated]       = useState([]);
+  const [video, setVideo]               = useState(null);
+  const [loading, setLoading]           = useState(true);
+  const [liked, setLiked]               = useState(false);
+  const [likeCount, setLikeCount]       = useState(0);
+  const [subscribed, setSubscribed]     = useState(false);
+  const [comments, setComments]         = useState([]);
+  const [commentText, setCommentText]   = useState('');
+  const [editId, setEditId]             = useState(null);
+  const [editText, setEditText]         = useState('');
+  const [related, setRelated]           = useState([]);
   const [descExpanded, setDescExpanded] = useState(false);
-  const [showShare, setShowShare]       = useState(false);
-  const [linkCopied, setLinkCopied]     = useState(false);
-  const [shareOpen, setShareOpen] = useState(false);
+  const [showShare, setShowShare]       = useState(false);   // ← single share state
+  const [linkCopied, setLinkCopied]     = useState(false);   // ← single copy state
 
   useEffect(() => {
     fetchVideo();
     fetchRelated();
   }, [videoId]);
-  
+
   const fetchVideo = async () => {
     setLoading(true);
     try {
@@ -109,7 +109,18 @@ export default function VideoPage() {
     } catch { toast.error('Failed to delete comment'); }
   };
 
-  const share = () => setShareOpen(true);
+  // ── Share handlers ──
+  const openShare = () => setShowShare(true);
+
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2500);
+    } catch {
+      toast.error('Could not copy link');
+    }
+  };
 
   if (loading) return (
     <div className="spinner-wrap" style={{ minHeight: '60vh' }}>
@@ -129,8 +140,10 @@ export default function VideoPage() {
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: 28, alignItems: 'start' }}>
+
       {/* Left: Player + info */}
       <div style={{ minWidth: 0 }}>
+
         {/* Video player */}
         <div style={{
           aspectRatio: '16/9', background: '#000', borderRadius: 'var(--radius-lg)',
@@ -183,6 +196,8 @@ export default function VideoPage() {
               {likeCount > 0 && formatViews(likeCount)}
               {' '}Like
             </button>
+
+            {/* Share button — calls openShare */}
             <button onClick={openShare} className="btn btn-secondary btn-sm">
               <Share2 size={14}/> Share
             </button>
@@ -221,7 +236,6 @@ export default function VideoPage() {
             {comments.length} Comment{comments.length !== 1 ? 's' : ''}
           </h2>
 
-          {/* Add comment */}
           {user && (
             <form onSubmit={submitComment} style={{ display: 'flex', gap: 12, marginBottom: 28, alignItems: 'flex-start' }}>
               <div className="avatar" style={{
@@ -252,7 +266,6 @@ export default function VideoPage() {
             </form>
           )}
 
-          {/* Comment list */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
             {comments.map(c => {
               const cOwner = c.owner || {};
@@ -324,7 +337,7 @@ export default function VideoPage() {
         </div>
       </aside>
 
-      {/* ── Share Modal ── */}
+      {/* ── Single ShareModal instance ── */}
       {showShare && (
         <ShareModal
           url={window.location.href}
@@ -335,24 +348,17 @@ export default function VideoPage() {
         />
       )}
 
-      {/* Responsive: hide aside on mobile */}
       <style>{`
         @media (max-width: 1100px) {
           aside { display: none; }
           div[style*="grid-template-columns"] { grid-template-columns: 1fr !important; }
         }
       `}</style>
-
-      <ShareModal
-        isOpen={shareOpen}
-        onClose={() => setShareOpen(false)}
-        videoTitle={video?.title}
-        videoUrl={window.location.href}
-      />
     </div>
   );
 }
 
+/* ── RelatedCard ── */
 function RelatedCard({ video }) {
   const owner = video.owner || {};
   return (
@@ -376,7 +382,7 @@ function RelatedCard({ video }) {
 }
 
 /* ─────────────────────────────────────────────
-   ShareModal — full share sheet with platforms
+   ShareModal — exactly ONE declaration here
    ───────────────────────────────────────────── */
 function ShareModal({ url, title, onClose, onCopy, copied }) {
   useEffect(() => {
@@ -492,10 +498,7 @@ function ShareModal({ url, title, onClose, onCopy, copied }) {
             }}>
               <Share2 size={17} style={{ color: 'var(--accent, #f5a623)' }} />
             </div>
-            <span style={{
-              fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 18,
-              color: 'var(--text-primary, #fff)',
-            }}>
+            <span style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 18, color: 'var(--text-primary, #fff)' }}>
               Share Video
             </span>
           </div>
@@ -516,21 +519,12 @@ function ShareModal({ url, title, onClose, onCopy, copied }) {
         </div>
 
         <div style={{ padding: '20px 24px 26px' }}>
-
-          {/* Platform label */}
-          <p style={{
-            fontSize: 11, fontWeight: 700, letterSpacing: '0.1em',
-            textTransform: 'uppercase', color: 'var(--text-muted, #666)',
-            marginBottom: 14,
-          }}>
+          <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted, #666)', marginBottom: 14 }}>
             Share to
           </p>
 
-          {/* Platform grid — 3 columns */}
-          <div style={{
-            display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)',
-            gap: 10, marginBottom: 24,
-          }}>
+          {/* Platform grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 24 }}>
             {platforms.map(p => (
               <a
                 key={p.name}
@@ -539,8 +533,7 @@ function ShareModal({ url, title, onClose, onCopy, copied }) {
                 rel="noopener noreferrer"
                 style={{
                   display: 'flex', flexDirection: 'column', alignItems: 'center',
-                  gap: 8, padding: '14px 10px',
-                  borderRadius: 14,
+                  gap: 8, padding: '14px 10px', borderRadius: 14,
                   background: 'var(--bg-elevated, rgba(255,255,255,0.04))',
                   border: '1px solid var(--border, rgba(255,255,255,0.06))',
                   textDecoration: 'none',
@@ -558,10 +551,7 @@ function ShareModal({ url, title, onClose, onCopy, copied }) {
                 }}
               >
                 {p.icon}
-                <span style={{
-                  fontSize: 11, fontWeight: 600,
-                  color: 'var(--text-secondary, #aaa)',
-                }}>
+                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary, #aaa)' }}>
                   {p.name}
                 </span>
               </a>
@@ -569,11 +559,7 @@ function ShareModal({ url, title, onClose, onCopy, copied }) {
           </div>
 
           {/* Copy link */}
-          <p style={{
-            fontSize: 11, fontWeight: 700, letterSpacing: '0.1em',
-            textTransform: 'uppercase', color: 'var(--text-muted, #666)',
-            marginBottom: 10,
-          }}>
+          <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted, #666)', marginBottom: 10 }}>
             Or copy link
           </p>
           <div style={{
@@ -584,8 +570,7 @@ function ShareModal({ url, title, onClose, onCopy, copied }) {
           }}>
             <Link2 size={14} style={{ color: 'var(--text-muted, #666)', flexShrink: 0 }} />
             <span style={{
-              flex: 1, fontSize: 13,
-              color: 'var(--text-secondary, #aaa)',
+              flex: 1, fontSize: 13, color: 'var(--text-secondary, #aaa)',
               whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
             }}>
               {url}
@@ -598,12 +583,9 @@ function ShareModal({ url, title, onClose, onCopy, copied }) {
                 background: copied ? '#22c55e' : 'var(--accent, #f5a623)',
                 color: copied ? '#fff' : '#07070f',
                 fontFamily: 'DM Sans, sans-serif', fontSize: 13, fontWeight: 700,
-                cursor: 'pointer',
-                transition: 'background 0.25s, color 0.25s, transform 0.1s',
-                flexShrink: 0,
+                cursor: 'pointer', flexShrink: 0,
+                transition: 'background 0.25s, color 0.25s',
               }}
-              onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.04)'}
-              onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
             >
               {copied ? <Check size={13} /> : <Copy size={13} />}
               {copied ? 'Copied!' : 'Copy'}
@@ -613,13 +595,12 @@ function ShareModal({ url, title, onClose, onCopy, copied }) {
       </div>
 
       <style>{`
-        @keyframes shFadeIn  { from { opacity: 0 } to { opacity: 1 } }
+        @keyframes shFadeIn  { from { opacity:0 } to { opacity:1 } }
         @keyframes shSlideUp {
-          from { opacity: 0; transform: translate(-50%, calc(-50% + 28px)) scale(0.97) }
-          to   { opacity: 1; transform: translate(-50%, -50%) scale(1) }
+          from { opacity:0; transform:translate(-50%,calc(-50% + 28px)) scale(0.97) }
+          to   { opacity:1; transform:translate(-50%,-50%) scale(1) }
         }
       `}</style>
     </>
   );
 }
-
