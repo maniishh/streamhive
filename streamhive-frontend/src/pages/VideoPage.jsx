@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ThumbsUp, Share2, Bell, BellOff, Trash2, Edit2, MoreVertical, Send, Play } from 'lucide-react';
+import { ThumbsUp, Share2, Bell, BellOff, Trash2, Edit2, MoreVertical, Send, Play, X, Copy, Check, Link2 } from 'lucide-react';
 import { videoAPI, commentAPI, likeAPI, subscriptionAPI, formatViews, formatDuration, timeAgo } from '../api/index.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { toast } from '../components/Toast.jsx';
 import VideoCard from '../components/VideoCard.jsx';
+import ShareModal from '../components/ShareModal.jsx';
 
 export default function VideoPage() {
   const { videoId } = useParams();
@@ -21,6 +22,9 @@ export default function VideoPage() {
   const [editText, setEditText]     = useState('');
   const [related, setRelated]       = useState([]);
   const [descExpanded, setDescExpanded] = useState(false);
+  const [showShare, setShowShare]       = useState(false);
+  const [linkCopied, setLinkCopied]     = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
 
   useEffect(() => {
     fetchVideo();
@@ -105,10 +109,7 @@ export default function VideoPage() {
     } catch { toast.error('Failed to delete comment'); }
   };
 
-  const share = () => {
-    navigator.clipboard.writeText(window.location.href);
-    toast.success('Link copied to clipboard!');
-  };
+  const share = () => setShareOpen(true);
 
   if (loading) return (
     <div className="spinner-wrap" style={{ minHeight: '60vh' }}>
@@ -182,7 +183,7 @@ export default function VideoPage() {
               {likeCount > 0 && formatViews(likeCount)}
               {' '}Like
             </button>
-            <button onClick={share} className="btn btn-secondary btn-sm">
+            <button onClick={openShare} className="btn btn-secondary btn-sm">
               <Share2 size={14}/> Share
             </button>
           </div>
@@ -323,6 +324,17 @@ export default function VideoPage() {
         </div>
       </aside>
 
+      {/* ── Share Modal ── */}
+      {showShare && (
+        <ShareModal
+          url={window.location.href}
+          title={video?.title || ''}
+          onClose={() => setShowShare(false)}
+          onCopy={copyLink}
+          copied={linkCopied}
+        />
+      )}
+
       {/* Responsive: hide aside on mobile */}
       <style>{`
         @media (max-width: 1100px) {
@@ -330,6 +342,13 @@ export default function VideoPage() {
           div[style*="grid-template-columns"] { grid-template-columns: 1fr !important; }
         }
       `}</style>
+
+      <ShareModal
+        isOpen={shareOpen}
+        onClose={() => setShareOpen(false)}
+        videoTitle={video?.title}
+        videoUrl={window.location.href}
+      />
     </div>
   );
 }
@@ -355,3 +374,252 @@ function RelatedCard({ video }) {
     </Link>
   );
 }
+
+/* ─────────────────────────────────────────────
+   ShareModal — full share sheet with platforms
+   ───────────────────────────────────────────── */
+function ShareModal({ url, title, onClose, onCopy, copied }) {
+  useEffect(() => {
+    const handler = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [onClose]);
+
+  const encodedUrl   = encodeURIComponent(url);
+  const encodedTitle = encodeURIComponent(title);
+
+  const platforms = [
+    {
+      name: 'WhatsApp',
+      icon: (
+        <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
+          <circle cx="16" cy="16" r="16" fill="#25D366"/>
+          <path d="M22.9 19.07c-.31-.15-1.84-.91-2.13-1.01-.28-.1-.49-.15-.7.15-.2.3-.79 1.01-.97 1.22-.18.2-.36.23-.67.08-.31-.15-1.31-.48-2.5-1.54-.92-.82-1.55-1.83-1.73-2.14-.18-.31-.02-.47.14-.63.14-.14.31-.36.47-.54.15-.18.2-.31.31-.51.1-.2.05-.38-.03-.54-.08-.15-.7-1.69-.96-2.31-.25-.6-.5-.52-.7-.53-.18-.01-.38-.01-.59-.01s-.54.08-.82.38c-.28.3-1.08 1.05-1.08 2.56s1.1 2.97 1.26 3.17c.15.2 2.17 3.31 5.26 4.64.74.32 1.31.51 1.76.65.74.23 1.41.2 1.94.12.59-.09 1.84-.75 2.1-1.48.26-.73.26-1.35.18-1.48-.08-.13-.28-.2-.59-.36z" fill="white"/>
+        </svg>
+      ),
+      href: `https://wa.me/?text=${encodedTitle}%20${encodedUrl}`,
+    },
+    {
+      name: 'Telegram',
+      icon: (
+        <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
+          <circle cx="16" cy="16" r="16" fill="#229ED9"/>
+          <path d="M23.5 9.5l-3.25 15.25c-.24 1.07-.88 1.33-1.78.83l-4.93-3.63-2.38 2.3c-.26.26-.48.48-.98.48l.35-4.96 9.02-8.15c.39-.35-.08-.54-.61-.19L7.72 18.44 2.9 16.96c-1.05-.33-1.07-1.05.22-1.55l19.05-7.35c.87-.32 1.63.19 1.33 1.44z" fill="white"/>
+        </svg>
+      ),
+      href: `https://t.me/share/url?url=${encodedUrl}&text=${encodedTitle}`,
+    },
+    {
+      name: 'X / Twitter',
+      icon: (
+        <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
+          <circle cx="16" cy="16" r="16" fill="#000"/>
+          <path d="M17.87 14.74L23.56 8h-1.35l-4.94 5.74L13.1 8H8.5l5.97 8.69L8.5 24h1.35l5.22-6.07L19.5 24H24l-6.13-9.26zm-1.85 2.15-.6-.86-4.8-6.87h2.07l3.88 5.55.6.86 5.04 7.21h-2.07l-4.12-5.89z" fill="white"/>
+        </svg>
+      ),
+      href: `https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedTitle}`,
+    },
+    {
+      name: 'Facebook',
+      icon: (
+        <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
+          <circle cx="16" cy="16" r="16" fill="#1877F2"/>
+          <path d="M21.33 16H18v12h-4V16h-2v-4h2v-2.42C14 7.48 15.19 6 18.27 6H21v4h-1.89c-.66 0-.11.74-.11 1.26V12h3l-1.67 4z" fill="white"/>
+        </svg>
+      ),
+      href: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`,
+    },
+    {
+      name: 'Reddit',
+      icon: (
+        <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
+          <circle cx="16" cy="16" r="16" fill="#FF4500"/>
+          <path d="M27 16c0-1.38-1.12-2.5-2.5-2.5-.62 0-1.18.22-1.62.58C21.4 13.1 19.3 12.54 17 12.43l.9-4.24 2.93.62a1.75 1.75 0 103.43.19l-3.37-.7-1.1 5.17c-2.27.14-4.34.7-5.8 1.66A2.5 2.5 0 108.5 19a4.62 4.62 0 000 .5c0 3.04 3.58 5.5 8 5.5s8-2.46 8-5.5c0-.17-.02-.34-.05-.5A2.49 2.49 0 0027 16zm-14.5 2a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm8 4.25c-1.03.53-2.24.75-4 .75s-2.97-.22-4-.75a.37.37 0 01.4-.62c.88.45 1.97.63 3.6.63s2.72-.18 3.6-.63a.37.37 0 01.4.62zM20.5 19a1.5 1.5 0 110-3 1.5 1.5 0 010 3z" fill="white"/>
+        </svg>
+      ),
+      href: `https://www.reddit.com/submit?url=${encodedUrl}&title=${encodedTitle}`,
+    },
+    {
+      name: 'Email',
+      icon: (
+        <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
+          <circle cx="16" cy="16" r="16" fill="#6B7280"/>
+          <path d="M8 11.5A1.5 1.5 0 019.5 10h13A1.5 1.5 0 0124 11.5v9A1.5 1.5 0 0122.5 22h-13A1.5 1.5 0 018 20.5v-9zm2 .5l6 4.5L22 12v-.5H10V12zm0 2.28V20h12v-6.22L16 18.5l-6-4.22z" fill="white"/>
+        </svg>
+      ),
+      href: `mailto:?subject=${encodedTitle}&body=Check%20this%20out%3A%20${encodedUrl}`,
+    },
+  ];
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        onClick={onClose}
+        style={{
+          position: 'fixed', inset: 0,
+          background: 'rgba(0,0,0,0.72)',
+          zIndex: 1000,
+          backdropFilter: 'blur(6px)',
+          animation: 'shFadeIn 0.18s ease',
+        }}
+      />
+
+      {/* Panel */}
+      <div style={{
+        position: 'fixed', left: '50%', top: '50%',
+        transform: 'translate(-50%, -50%)',
+        zIndex: 1001, width: '92%', maxWidth: 480,
+        background: 'var(--bg-card, #13131f)',
+        border: '1px solid var(--border, rgba(255,255,255,0.08))',
+        borderRadius: 20,
+        boxShadow: '0 32px 80px rgba(0,0,0,0.75)',
+        animation: 'shSlideUp 0.24s cubic-bezier(0.34,1.56,0.64,1)',
+        overflow: 'hidden',
+      }}>
+
+        {/* Header */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '20px 24px 16px',
+          borderBottom: '1px solid var(--border, rgba(255,255,255,0.07))',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{
+              width: 36, height: 36, borderRadius: 10,
+              background: 'var(--accent-dim, rgba(245,166,35,0.15))',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <Share2 size={17} style={{ color: 'var(--accent, #f5a623)' }} />
+            </div>
+            <span style={{
+              fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 18,
+              color: 'var(--text-primary, #fff)',
+            }}>
+              Share Video
+            </span>
+          </div>
+          <button
+            onClick={onClose}
+            style={{
+              width: 32, height: 32, borderRadius: '50%',
+              background: 'var(--bg-elevated, rgba(255,255,255,0.06))',
+              border: 'none', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'var(--text-muted, #888)', transition: 'background 0.15s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.13)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'var(--bg-elevated, rgba(255,255,255,0.06))'}
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        <div style={{ padding: '20px 24px 26px' }}>
+
+          {/* Platform label */}
+          <p style={{
+            fontSize: 11, fontWeight: 700, letterSpacing: '0.1em',
+            textTransform: 'uppercase', color: 'var(--text-muted, #666)',
+            marginBottom: 14,
+          }}>
+            Share to
+          </p>
+
+          {/* Platform grid — 3 columns */}
+          <div style={{
+            display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)',
+            gap: 10, marginBottom: 24,
+          }}>
+            {platforms.map(p => (
+              <a
+                key={p.name}
+                href={p.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: 'flex', flexDirection: 'column', alignItems: 'center',
+                  gap: 8, padding: '14px 10px',
+                  borderRadius: 14,
+                  background: 'var(--bg-elevated, rgba(255,255,255,0.04))',
+                  border: '1px solid var(--border, rgba(255,255,255,0.06))',
+                  textDecoration: 'none',
+                  transition: 'transform 0.15s ease, background 0.15s ease, border-color 0.15s',
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.transform = 'translateY(-3px)';
+                  e.currentTarget.style.background = 'rgba(255,255,255,0.09)';
+                  e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.background = 'var(--bg-elevated, rgba(255,255,255,0.04))';
+                  e.currentTarget.style.borderColor = 'var(--border, rgba(255,255,255,0.06))';
+                }}
+              >
+                {p.icon}
+                <span style={{
+                  fontSize: 11, fontWeight: 600,
+                  color: 'var(--text-secondary, #aaa)',
+                }}>
+                  {p.name}
+                </span>
+              </a>
+            ))}
+          </div>
+
+          {/* Copy link */}
+          <p style={{
+            fontSize: 11, fontWeight: 700, letterSpacing: '0.1em',
+            textTransform: 'uppercase', color: 'var(--text-muted, #666)',
+            marginBottom: 10,
+          }}>
+            Or copy link
+          </p>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            background: 'var(--bg-input, rgba(255,255,255,0.05))',
+            border: '1px solid var(--border, rgba(255,255,255,0.1))',
+            borderRadius: 12, padding: '10px 14px',
+          }}>
+            <Link2 size={14} style={{ color: 'var(--text-muted, #666)', flexShrink: 0 }} />
+            <span style={{
+              flex: 1, fontSize: 13,
+              color: 'var(--text-secondary, #aaa)',
+              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+            }}>
+              {url}
+            </span>
+            <button
+              onClick={onCopy}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '7px 16px', borderRadius: 8, border: 'none',
+                background: copied ? '#22c55e' : 'var(--accent, #f5a623)',
+                color: copied ? '#fff' : '#07070f',
+                fontFamily: 'DM Sans, sans-serif', fontSize: 13, fontWeight: 700,
+                cursor: 'pointer',
+                transition: 'background 0.25s, color 0.25s, transform 0.1s',
+                flexShrink: 0,
+              }}
+              onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.04)'}
+              onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+            >
+              {copied ? <Check size={13} /> : <Copy size={13} />}
+              {copied ? 'Copied!' : 'Copy'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes shFadeIn  { from { opacity: 0 } to { opacity: 1 } }
+        @keyframes shSlideUp {
+          from { opacity: 0; transform: translate(-50%, calc(-50% + 28px)) scale(0.97) }
+          to   { opacity: 1; transform: translate(-50%, -50%) scale(1) }
+        }
+      `}</style>
+    </>
+  );
+}
+
