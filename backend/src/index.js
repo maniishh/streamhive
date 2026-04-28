@@ -1,44 +1,44 @@
-import dotenv from 'dotenv' 
-// Import dotenv package
-// It loads environment variables from a .env file into process.env
+import dotenv from 'dotenv';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
+import { app } from './app.js';
+import connectDB from './db/index.js';
+import { initSocket } from './utils/socket.js';
 
-import { app } from './app.js' 
-// Import Express app instance from app.js
-// app.js usually contains middleware + routes configuration
-
-import connectDB from './db/index.js' 
-// Import your database connection function
-// This function connects your app to MongoDB (or any DB you're using)
-
-dotenv.config({
-    path: './env'
-}) 
-// Load environment variables from a file named "env"
-// Now you can access variables like process.env.PORT, process.env.MONGO_URI, etc.
+dotenv.config({ path: './env' });
 
 connectDB()
-// Call the database connection function
-// It returns a Promise (because DB connection is async)
+  .then(() => {
+    const httpServer = createServer(app);
 
-.then(() => {
-  // If database connects successfully
+    // ── Socket.io ─────────────────────────────────────────────────────────
+    // allowEIO3: true  — accept older Engine.IO clients
+    // pingTimeout / pingInterval — keep free-tier Render connections alive
+    const io = new Server(httpServer, {
+      cors: {
+        origin: process.env.CORS_ORIGIN
+          ? process.env.CORS_ORIGIN.split(',').map(s => s.trim())
+          : '*',
+        methods: ['GET', 'POST'],
+        credentials: true,
+      },
+      allowEIO3: true,
+      // These two prevent Render's 30-second idle timeout from killing sockets
+      pingTimeout: 25000,
+      pingInterval: 10000,
+      // Allow both transports — client starts with polling, upgrades to ws
+      transports: ['polling', 'websocket'],
+    });
 
-  app.listen(process.env.PORT || 8000, () => {
-    // Start Express server
-    // Use PORT from environment file
-    // If not defined, default to 8000
+    initSocket(io);
 
-    console.log(`server is running on ${process.env.PORT}`)
-    // Log confirmation that server started
+    httpServer.listen(process.env.PORT || 8000, () => {
+      console.log(`Server running on port ${process.env.PORT || 8000}`);
+    });
   })
-
-})
-.catch((err) => {
-  // If database connection fails
-
-  console.log("Error in connecting to DB !!", err);
-  // Print error so you know what went wrong
-})
+  .catch((err) => {
+    console.error('Error connecting to DB:', err);
+  });
 
 
 
